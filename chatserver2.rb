@@ -6,8 +6,10 @@ class Chatserver
 		@chatserver = TCPServer.open ip, port
 		@connections = Hash.new
 		@rooms = Hash.new
+		@clients = Hash.new
 		@connections[:server] = @chatserver
 		@connections[:rooms] = @rooms
+		@connections[:clients] = @clients
 	end
 
 	def run
@@ -18,36 +20,40 @@ class Chatserver
 				room_name = ""
 				if @connections[:rooms].empty?
 					p "400"
-					client.puts "400"
+					client.puts "<400>"
 					room_name = client.gets.chomp.to_sym
 					p room_name
-					clients = Hash.new
-					@connections[:rooms][room_name] = clients[nick_name] = client
+					@connections[:clients][nick_name] = client
+					@connections[:rooms][room_name] = []
+					@connections[:rooms][room_name] << nick_name
 					p @connections[:rooms][room_name]
+					connected = true
 				else
-					@connections[:rooms].each do |room, client_dict|
-						client_dict.each do |name, other_client|
-							if client == other_client or nick_name == name
-								connected = true
-								client.puts "401"
-							end
+					@connections[:clients].each do |name, other_client|
+						puts "#{name}"
+						if client == other_client or nick_name == name
+							connected = true
+							client.puts "<401>"
+							Thread.kill self
 						end
 					end
 				end
 				if not connected
-					message = "Choose a room to enter in it.\n"
-					@connections[:rooms].each { |room| message += room.to_s + "\n"}
+					message = "<200>Choose a room to enter in it.\n"
+					message += "==============Rooms=================\n"
+					@connections[:rooms].each_key { |room| message += room.to_s + "\n"}
 					client.puts message
 					room_name = client.gets.chomp.to_sym
 					while not @connections[:rooms].include? room_name
-						client.puts "This chat room not exist"
+						client.puts "<404>"
 						room_name = client.gets.chomp.to_sym
 					end
-					@connections[:rooms][room_name][nick_name] = client
+					@connections[:clients][nick_name] = client
+					@connections[:rooms][room_name] << nick_name
 					puts "#{@connections}"
-					client.puts "you're now connected to the chat room."
-					get_msg room_name, nick_name, client
 				end
+				client.puts "you're now connected in #{room_name} chat room."
+				get_msg room_name, nick_name, client
 				connected = false
 			end
 		}
@@ -55,9 +61,8 @@ class Chatserver
 
 	private
 	def private_message(room_name, msg, to_client, from_client)
-		clients = @connections[:rooms][room_name]
-		if clients.include? to_client
-			clients[to_client].puts "private message from "+from_client+": "+msg
+		if @connections[:rooms][room_name].include? to_client
+			@connections[:clients][to_client].puts "private message from #{from_client}: #{msg}"
 		else
 			raise "No user with this name or is gone."
 		end
@@ -80,13 +85,16 @@ class Chatserver
 				end
 			elsif msg =~ /end/i
 				@connections[:rooms][room_name].delete nick_name
+				@connections[:clients][nick_name].delete nick_name
 				client.close
 			elsif msg =~ /list/i
-				@connections[:rooms][room_name].each do |nick, client|
-					if !nick.equal? :server and !nick.equal? nick_name
-						client.puts nick.to_s
+				message = ""
+				@connections[:rooms][room_name].each do |nick|
+					unless nick == nick_name
+						message += "#{nick.to_s}\n"
 					end
 				end
+				client.puts message
 			else
 				broadcast_message room_name, msg, nick_name
 			end
@@ -94,9 +102,9 @@ class Chatserver
 	end
 
 	def broadcast_message(room_name, msg, omit_client)
-		@connections[:rooms][room_name].each do |nick_name, client|
-			if !nick_name.equal? :server and !nick_name.equal? omit_client
-				client.puts omit_client.to_s+": " + msg
+		@connections[:rooms][room_name].each do |nick_name|
+			unless nick_name == omit_client
+				@connections[:clients][nick_name].puts "#{omit_client.to_s}: #{msg}"
 			end
 		end
 	end
