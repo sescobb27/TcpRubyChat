@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 require "socket"
+require_relative "shell_input"
 class Chatserver
 	
 	def initialize(port, ip)
@@ -19,14 +20,9 @@ class Chatserver
 				nick_name = client.gets.chomp.to_sym
 				room_name = ""
 				if @connections[:rooms].empty?
-					p "400"
 					client.puts "<400>"
 					room_name = client.gets.chomp.to_sym
-					p room_name
-					@connections[:clients][nick_name] = client
-					@connections[:rooms][room_name] = []
-					@connections[:rooms][room_name] << nick_name
-					p @connections[:rooms][room_name]
+					crear_sala room_name, nick_name, client
 					connected = true
 				else
 					@connections[:clients].each do |name, other_client|
@@ -42,16 +38,31 @@ class Chatserver
 					message = "<200>Choose a room to enter in it.\n"
 					message += "==============Rooms=================\n"
 					@connections[:rooms].each_key { |room| message += room.to_s + "\n"}
+					message += "==============End Rooms=============\n"
 					client.puts message
 					room_name = client.gets.chomp.to_sym
 					while not @connections[:rooms].include? room_name
-						client.puts "<404>"
+						if nombre_valido? room_name
+							client.puts "<404>"
+							answer = client.gets.chomp
+							if answer =~ /(y|s)/i
+								crear_sala room_name, nick_name, client
+								connected = true
+								break
+							else
+								client.puts "<300>"
+							end
+						else
+							client.puts "<405>"
+						end
 						room_name = client.gets.chomp.to_sym
 					end
-					@connections[:clients][nick_name] = client
-					@connections[:rooms][room_name] << nick_name
-					puts "#{@connections}"
+					if not connected
+						@connections[:clients][nick_name] = client
+						@connections[:rooms][room_name] << nick_name
+					end
 				end
+				puts "#{@connections}"
 				client.puts "you're now connected in #{room_name} chat room."
 				get_msg room_name, nick_name, client
 				connected = false
@@ -60,6 +71,17 @@ class Chatserver
 	end
 
 	private
+	def nombre_valido?(room_name,command_line = false)
+		return room_name =~ /^(\w){3,}$/i unless command_line
+		room_name = room_name =~ /^<(\w){3,}>$/i ? room_name[1..-2].to_sym : false
+	end
+
+	def crear_sala(room_name, nick_name, client = nil)
+		@connections[:clients][nick_name] = client if client
+		@connections[:rooms][room_name] = []
+		@connections[:rooms][room_name] << nick_name
+	end
+
 	def private_message(room_name, msg, to_client, from_client)
 		if @connections[:rooms][room_name].include? to_client
 			@connections[:clients][to_client].puts "private message from #{from_client}: #{msg}"
@@ -71,11 +93,11 @@ class Chatserver
 	def get_msg(room_name, nick_name, client)
 		loop {
 			msg = client.gets.chomp
-			if @connections[:rooms][room_name].size == 2
+			if @connections[:rooms][room_name].size == 1 and 
 				client.puts "you are alone"
-			elsif msg =~ /^p:/i
+			elsif msg =~ /^p:\w+:.+$/i
 				# private_message
-				msg = msg.split(':')
+				msg = msg.split(':',3)
 				name = msg[1].to_sym
 				msg = msg[2]
 				begin
@@ -83,11 +105,22 @@ class Chatserver
 				rescue Exception => e
 					client.puts "#{e.message}"
 				end
-			elsif msg =~ /end/i
+			elsif msg =~ /^<new room>/i
+				new_room = nombre_valido? msg[10..-1].strip, true
+				if new_room and not @connections[:rooms].include? new_room
+					@connections[:rooms][room_name].delete nick_name
+					crear_sala new_room, nick_name
+					room_name = new_room
+					client.puts "<200>Chat room successfully created, you are now in it."
+				else
+					client.puts "<405>" unless new_room
+					client.puts "<402>" unless condition
+				end
+			elsif msg =~ /^end$/i
 				@connections[:rooms][room_name].delete nick_name
-				@connections[:clients][nick_name].delete nick_name
+				@connections[:clients].delete nick_name
 				client.close
-			elsif msg =~ /list/i
+			elsif msg =~ /^list$/i
 				message = ""
 				@connections[:rooms][room_name].each do |nick|
 					unless nick == nick_name
@@ -109,43 +142,6 @@ class Chatserver
 		end
 	end
 end
-
-def validate_ip(ip)
-	unless ip =~ /\A(\d){1,3}\.(\d){1,3}\.(\d){1,3}\.(\d){1,3}\z/ or ip == "localhost"
-		puts "Error ip format must be ###.###.###.### or localhost"
-		exit
-	end
-end
-
-def validate_port(port)
-	unless port =~ /^[0-9]+$/
-		puts "Error port must be a number"
-		exit
-	end
-end
-
-tag = ARGV[0]
-tag2 = ARGV[2]
-if tag =~ /-p/
-	port = ARGV[1].chomp
-	validate_port port
-elsif tag =~ /-ip/
-	ip = ARGV[1].chomp
-	validate_ip ip
-else
-	puts "Error Args, must be -p or -ip"
-	exit
-end
-
-if tag2 =~ /-p/
-	port = ARGV[3].chomp
-	validate_port port
-elsif tag2 =~ /-ip/
-	ip = ARGV[3].chomp
-	validate_ip ip
-else
-	puts "Error Args, must be -p or -ip"
-	exit
-end
+port, ip = Shell::input
 chat = Chatserver.new port, ip
 chat.run

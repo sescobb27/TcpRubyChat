@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 require "socket"
+require_relative "shell_input"
 
 class Client
 	
@@ -12,26 +13,28 @@ class Client
 	end
 
 	def help
-		puts "1) [list|LIST] lista los usuarios conectados"
+		puts "..........................help.............................."
+		puts "1) [list|LIST] lista los usuarios conectados en esa sala"
 		puts "2) [end|END] termina session en el chat"
 		puts "3) [p:|P:][name]:[message] envia un mensaje privado"
 		puts "4) [help|HELP] despliega este menu de ayuda"
+		puts "5) si desea crear una sala nueva, cuando vaya a escoger\n   una de las salas, coloque el nombre de la nueva sala,\n   recuerde que debe tener un nombre unico o copie <new room><NOMBRE>,\n   siendo el nombre de 3 o mas caracteres, (LETRA|NUMERO|_)"
 	end
 
 	def start_sends
 		@request = Thread.new do
 			loop {
 				msg = get_input
-				puts "message: #{msg}" unless @info
-				if msg =~ /end/i and not @info
+				if msg =~ /^end$/i and not @info
 					send_msg "end"
 					@chatserver.close
 					Thread.kill @response
-					Thread.kill @request
-					Thread.main.stop
-				elsif msg =~ /help/i
+					Thread.sleep(10)
+					exit
+				elsif msg =~ /^help$/i
 					help
 				else
+					puts "message: #{msg}" unless @info
 					send_msg msg
 				end
 			}
@@ -42,23 +45,28 @@ class Client
 		@response = Thread.new do
 			loop {
 				resp_msg = get_server_input
-				p resp_msg
 				if resp_msg =~ /^<\d+>/
 					response_code = resp_msg[1,3]
-					resp_msg = resp_msg[5..-1]
 					@info = true
 					case response_code
 						when "200"
 							# OK code
-							puts "#{resp_msg}"
+							puts "#{resp_msg[5..-1]}"
+						when "300"
+							# information to resend
+							puts "Choose an other chat room name."
 						when "400"
 							puts "There is no rooms avaiable, create one."
 							print "Room name: "
 						when "401"
-							puts "your name is not available, try again."
+							puts "Your name is not available, try again."
 							exit
+						when "402"
+							puts "This chat room already exist, try again."
 						when "404"
-							puts "This chat room not exist, try again."
+							puts "This chat room not exist, do you want to create it?(Y|S|ANYTHING)"
+						when "405"
+							puts "Error invalid chat room name."
 					end
 				else
 					@info = false
@@ -90,9 +98,8 @@ class Client
 	end
 end
 
-hostname = 'localhost'
-port = ARGV[0].to_i
-chatserver = TCPSocket.open(hostname,port)
+port, ip = Shell::input
+chatserver = TCPSocket.open(ip, port)
 client = Client.new chatserver
 client.listen
 client.start_sends
