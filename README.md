@@ -6,10 +6,10 @@ ruby client.rb -p [port] -ip [ip or localhost]
 
 ##[list|LIST]!-all!!-sala!
 lista los usuarios conectados en esa sala, con la opcion
--all
+_-all_
 	lista todos los usuarios en todas las salas y en que
 	sala se encuentra.
--sala 
+_-sala_ 
 	lista todas las salas disponibles
 lo que esta dentro de !! es opcional.
 ####==============NO COPIE LOS ([ ])==============
