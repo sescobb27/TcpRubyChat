@@ -93,7 +93,7 @@ class Chatserver
 	def get_msg(room_name, nick_name, client)
 		loop {
 			msg = client.gets.chomp
-			if @connections[:rooms][room_name].size == 1 and 
+			if @connections[:rooms][room_name].size == 1 and not msg =~ /^</
 				client.puts "you are alone"
 			elsif msg =~ /^p:\w+:.+$/i
 				# private_message
@@ -113,10 +113,9 @@ class Chatserver
 					room_name = new_room
 					client.puts "<200>Chat room successfully created, you are now in it."
 				else
-					client.puts "<405>" unless new_room
-					client.puts "<402>" unless condition
+					client.puts "<405>"
 				end
-			elsif msg =~ /^end$/i
+			elsif msg =~ /^<end>$/i
 				@connections[:rooms][room_name].delete nick_name
 				@connections[:clients].delete nick_name
 				client.close
@@ -128,6 +127,16 @@ class Chatserver
 					end
 				end
 				client.puts message
+			elsif msg =~ /^<change>/i
+				new_room = nombre_valido? msg[8..-1].strip, true
+				if new_room and @connections[:rooms].include? new_room
+					@connections[:rooms][room_name].delete nick_name
+					room_name = new_room
+					@connections[:rooms][room_name] << nick_name
+					client.puts "<200>You are now in #{room_name.to_s}."
+				else
+					client.puts "<405>"
+				end
 			else
 				broadcast_message room_name, msg, nick_name
 			end

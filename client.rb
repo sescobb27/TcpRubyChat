@@ -15,17 +15,18 @@ class Client
 	def help
 		puts "..........................help.............................."
 		puts "1) [list|LIST] lista los usuarios conectados en esa sala"
-		puts "2) [end|END] termina session en el chat"
+		puts "2) [<end>|<END>] termina session en el chat"
 		puts "3) [p:|P:][name]:[message] envia un mensaje privado"
 		puts "4) [help|HELP] despliega este menu de ayuda"
 		puts "5) si desea crear una sala nueva, cuando vaya a escoger\n   una de las salas, coloque el nombre de la nueva sala,\n   recuerde que debe tener un nombre unico o copie <new room><NOMBRE>,\n   siendo el nombre de 3 o mas caracteres, (LETRA|NUMERO|_)"
+		puts "6) si desea cambiar de sala copie <change><NOMBRE>"
 	end
 
 	def start_sends
 		@request = Thread.new do
 			loop {
 				msg = get_input
-				if msg =~ /^end$/i and not @info
+				if msg =~ /^<end>$/i and not @info
 					send_msg "end"
 					@chatserver.close
 					Thread.kill @response
@@ -34,7 +35,9 @@ class Client
 				elsif msg =~ /^help$/i
 					help
 				else
-					puts "message: #{msg}" unless @info
+					if not @info and not msg =~ /^</
+						puts "message: #{msg}"
+					end
 					send_msg msg
 				end
 			}
