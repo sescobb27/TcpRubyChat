@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 require "socket"
 require_relative "shell_input"
+require_relative "sender"
 class Chatserver
 	
 	def initialize(port, ip)
@@ -21,7 +22,7 @@ class Chatserver
 				nick_name = client.gets.chomp.to_sym
 				room_name = ""
 				if @connections[:rooms].empty?
-					client.puts "<400>"
+					send_msg client, "<400>"
 					room_name = client.gets.chomp.to_sym
 					crear_sala room_name, nick_name, client
 					connected = true
@@ -30,7 +31,7 @@ class Chatserver
 						puts "#{name}"
 						if client == other_client or nick_name == name
 							connected = true
-							client.puts "<401>"
+							send_msg client, "<401>"
 							Thread.kill self
 						end
 					end
@@ -40,21 +41,21 @@ class Chatserver
 					message += "==============Rooms=================\n"
 					@connections[:rooms].each_key { |room| message += room.to_s + "\n"}
 					message += "==============End Rooms=============\n"
-					client.puts message
+					send_msg client, message
 					room_name = client.gets.chomp.to_sym
 					while not already_exist? room_name
 						if nombre_valido? room_name
-							client.puts "<404>"
+							send_msg client, "<404>"
 							answer = client.gets.chomp
 							if answer =~ /(y|s)/i
 								crear_sala room_name, nick_name, client
 								connected = true
 								break
 							else
-								client.puts "<300>"
+								send_msg client, "<300>"
 							end
 						else
-							client.puts "<405>"
+							send_msg client, "<405>"
 						end
 						room_name = client.gets.chomp.to_sym
 					end
@@ -64,14 +65,14 @@ class Chatserver
 					end
 				end
 				puts "#{@connections}"
-				client.puts "you're now connected in #{room_name} chat room."
+				send_msg client, "you're now connected in #{room_name} chat room."
 				get_msg room_name, nick_name, client
 				connected = false
 			end
 		}
 		rescue Exception => e
 			@connections[:clients].each_value do |client|
-				client.puts "<500>"
+				send_msg client, "<500>"
 			end
 		end
 	end
@@ -80,6 +81,10 @@ class Chatserver
 	def nombre_valido?(room_name,command_line = false)
 		return room_name =~ /^(\w){3,}$/i unless command_line
 		room_name = room_name =~ /^<(\w){3,}>$/i ? room_name[1..-2].to_sym : false
+	end
+
+	def send_msg(client, msg)
+		Sender.send_message({client: client}, msg)
 	end
 
 	def crear_sala(room_name, nick_name, client = nil)
@@ -102,7 +107,7 @@ class Chatserver
 		loop {
 			msg = client.gets.chomp
 			if @connections[:rooms][room_name].size == 1 and not msg =~ /^</ and not msg =~ /^list/i
-				client.puts "you are alone"
+				send_msg client, "you are alone"
 			elsif msg =~ /^p:\w+:.+$/i
 				# private_message
 				msg = msg.split(':',3)
@@ -111,7 +116,7 @@ class Chatserver
 				begin
 					private_message room_name, msg, name, nick_name.to_s
 				rescue Exception => e
-					client.puts "#{e.message}"
+					send_msg client, "#{e.message}"
 				end
 			elsif msg =~ /^<new room>/i
 				new_room = nombre_valido? msg[10..-1].strip, true
@@ -119,9 +124,9 @@ class Chatserver
 					@connections[:rooms][room_name].delete nick_name
 					crear_sala new_room, nick_name
 					room_name = new_room
-					client.puts "<200>Chat room successfully created, you are now in it."
+					send_msg client, "<200>Chat room successfully created, you are now in it."
 				else
-					client.puts "<405>"
+					send_msg client, "<405>"
 				end
 			elsif msg =~ /^<end>$/i
 				@connections[:rooms][room_name].delete nick_name
@@ -149,16 +154,16 @@ class Chatserver
 						end
 					end
 				end
-				client.puts message
+				send_msg client, message
 			elsif msg =~ /^<change>/i
 				new_room = nombre_valido? msg[8..-1].strip, true
 				if new_room and already_exist? new_room
 					@connections[:rooms][room_name].delete nick_name
 					room_name = new_room
 					@connections[:rooms][room_name] << nick_name
-					client.puts "<200>You are now in #{room_name.to_s}."
+					send_msg client, "<200>You are now in #{room_name.to_s}."
 				else
-					client.puts "<405>"
+					send_msg client, "<405>"
 				end
 			else
 				broadcast_message room_name, msg, nick_name

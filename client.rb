@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 require "socket"
 require_relative "shell_input"
+require_relative "sender"
 
 class Client
 	
@@ -91,7 +92,7 @@ class Client
 		name = get_input
 		system("clear")
 		help
-		@chatserver.puts name
+		send_msg name
 	end
 
 	def get_input
@@ -99,7 +100,8 @@ class Client
 	end
 
 	def send_msg(msg)
-		@chatserver.puts msg
+		# @chatserver.puts msg
+		Sender.send_message({server: @chatserver}, msg)
 	end
 
 	def get_server_input
