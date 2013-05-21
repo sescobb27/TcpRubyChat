@@ -14,6 +14,7 @@ class Chatserver
 	end
 
 	def run
+		begin
 		loop {
 			Thread.start(@chatserver.accept) do |client|
 				connected = false
@@ -68,6 +69,11 @@ class Chatserver
 				connected = false
 			end
 		}
+		rescue Exception => e
+			@connections[:clients].each_value do |client|
+				client.puts "500"
+			end
+		end
 	end
 
 	private
@@ -78,7 +84,9 @@ class Chatserver
 
 	def crear_sala(room_name, nick_name, client = nil)
 		@connections[:clients][nick_name] = client if client
-		@connections[:rooms][room_name] = []
+		if not @connections[:rooms].include? room_name
+			@connections[:rooms][room_name] = []
+		end
 		@connections[:rooms][room_name] << nick_name
 	end
 
@@ -93,7 +101,7 @@ class Chatserver
 	def get_msg(room_name, nick_name, client)
 		loop {
 			msg = client.gets.chomp
-			if @connections[:rooms][room_name].size == 1 and not msg =~ /^</
+			if @connections[:rooms][room_name].size == 1 and not msg =~ /^</ and not msg =~ /^list/i
 				client.puts "you are alone"
 			elsif msg =~ /^p:\w+:.+$/i
 				# private_message
@@ -119,11 +127,26 @@ class Chatserver
 				@connections[:rooms][room_name].delete nick_name
 				@connections[:clients].delete nick_name
 				client.close
-			elsif msg =~ /^list$/i
+			elsif msg =~ /^list/i
 				message = ""
-				@connections[:rooms][room_name].each do |nick|
-					unless nick == nick_name
-						message += "#{nick.to_s}\n"
+				if msg =~ /-all$/i
+					@connections[:rooms].each do |room,users|
+						message += "#{room.to_s}:\n"
+						users.each do |nick|
+							unless nick == nick_name
+								message += "\t*#{nick.to_s}\n"
+							end
+						end
+					end
+				elsif msg =~ /-sala$/
+					@connections[:rooms].each_key do |room|
+						message += "#{room.to_s}:\n"
+					end
+				else
+					@connections[:rooms][room_name].each do |nick|
+						unless nick == nick_name
+							message += "#{nick.to_s}\n"
+						end
 					end
 				end
 				client.puts message

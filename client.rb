@@ -14,7 +14,7 @@ class Client
 
 	def help
 		puts "..........................help.............................."
-		puts "1) [list|LIST] lista los usuarios conectados en esa sala"
+		puts "1) [list|LIST]!-all!!-sala! lista los usuarios conectados en esa sala,\n   lo que esta dentro de !! es opcional"
 		puts "2) [<end>|<END>] termina session en el chat"
 		puts "3) [p:|P:][name]:[message] envia un mensaje privado"
 		puts "4) [help|HELP] despliega este menu de ayuda"
@@ -26,6 +26,7 @@ class Client
 		@request = Thread.new do
 			loop {
 				msg = get_input
+				send = true
 				if msg =~ /^<end>$/i and not @info
 					send_msg "end"
 					@chatserver.close
@@ -35,10 +36,14 @@ class Client
 				elsif msg =~ /^help$/i
 					help
 				else
-					if not @info and not msg =~ /^</
+					if msg.size > 160
+						puts "message too long"
+						send = false
+					elsif not @info and not msg =~ /^</
 						puts "message: #{msg}"
+						send = true
 					end
-					send_msg msg
+					send_msg(msg) if send
 				end
 			}
 		end
@@ -70,6 +75,9 @@ class Client
 							puts "This chat room not exist, do you want to create it?(Y|S|ANYTHING)"
 						when "405"
 							puts "Error invalid chat room name."
+						when "500"
+							puts "Server error or is off"
+							exit
 					end
 				else
 					@info = false
@@ -107,6 +115,14 @@ client = Client.new chatserver
 client.listen
 client.start_sends
 
-while Thread.main.alive?
+begin
+	while Thread.main.alive?
 	
+	end
+rescue Exception => e
+	chatserver.puts "<end>"
+	chatserver.close
+	Thread.list.each do |thread|
+		thread.kill
+	end
 end
