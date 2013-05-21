@@ -14,7 +14,7 @@ lista los usuarios conectados en esa sala, con la opcion
 lo que esta dentro de !! es opcional.
 ####==============NO COPIE LOS ([ ])==============
 
-##[<end>|<END>] o ctrl + c
+##[\<end\>|\<END\>] o ctrl + c
 termina session en el chat. 
 ####=======NO OLVIDE COPIAR LOS < >, sino sera leido como un mensaje normal.=======
 ####==============NO COPIE LOS ([ ])==============
@@ -30,7 +30,7 @@ sala.
 despliega el menu de ayuda.
 ####==============NO COPIE LOS ([ ])==============
 
-##<new room><NOMBRE>
+##\<new room\>\<NOMBRE\>
 si desea crear una sala nueva, cuando vaya a escoger
 una de las salas, coloque el nombre de la nueva sala,
 recuerde que debe tener un nombre unico,siendo el
@@ -40,7 +40,7 @@ para crear la sala y luego con el proximo comando se puede cambiar
 a ella.
 ####=======NO OLVIDE COPIAR LOS < >, sino sera leido como un mensaje normal.=======
 
-##<change><NOMBRE>
+##\<change\>\<NOMBRE\>
 si desea cambiar de sala, recuerde que la sala debe existir
 previamente o saldra error, si la sala no existe debe
 crearla primero.
