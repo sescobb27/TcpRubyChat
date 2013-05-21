@@ -42,7 +42,7 @@ class Chatserver
 					message += "==============End Rooms=============\n"
 					client.puts message
 					room_name = client.gets.chomp.to_sym
-					while not @connections[:rooms].include? room_name
+					while not already_exist? room_name
 						if nombre_valido? room_name
 							client.puts "<404>"
 							answer = client.gets.chomp
@@ -71,7 +71,7 @@ class Chatserver
 		}
 		rescue Exception => e
 			@connections[:clients].each_value do |client|
-				client.puts "500"
+				client.puts "<500>"
 			end
 		end
 	end
@@ -84,7 +84,7 @@ class Chatserver
 
 	def crear_sala(room_name, nick_name, client = nil)
 		@connections[:clients][nick_name] = client if client
-		if not @connections[:rooms].include? room_name
+		if not already_exist? room_name
 			@connections[:rooms][room_name] = []
 		end
 		@connections[:rooms][room_name] << nick_name
@@ -115,7 +115,7 @@ class Chatserver
 				end
 			elsif msg =~ /^<new room>/i
 				new_room = nombre_valido? msg[10..-1].strip, true
-				if new_room and not @connections[:rooms].include? new_room
+				if new_room and not already_exist? new_room
 					@connections[:rooms][room_name].delete nick_name
 					crear_sala new_room, nick_name
 					room_name = new_room
@@ -145,14 +145,14 @@ class Chatserver
 				else
 					@connections[:rooms][room_name].each do |nick|
 						unless nick == nick_name
-							message += "#{nick.to_s}\n"
+							message += "\t*#{nick.to_s}\n"
 						end
 					end
 				end
 				client.puts message
 			elsif msg =~ /^<change>/i
 				new_room = nombre_valido? msg[8..-1].strip, true
-				if new_room and @connections[:rooms].include? new_room
+				if new_room and already_exist? new_room
 					@connections[:rooms][room_name].delete nick_name
 					room_name = new_room
 					@connections[:rooms][room_name] << nick_name
@@ -164,6 +164,10 @@ class Chatserver
 				broadcast_message room_name, msg, nick_name
 			end
 		}
+	end
+
+	def already_exist?(room_name)
+		@connections[:rooms].include? room_name
 	end
 
 	def broadcast_message(room_name, msg, omit_client)

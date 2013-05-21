@@ -28,23 +28,21 @@ class Client
 				msg = get_input
 				send = true
 				if msg =~ /^<end>$/i and not @info
-					send_msg "end"
+					send_msg "<end>"
 					@chatserver.close
 					Thread.kill @response
-					Thread.sleep(10)
+					Thread.main.kill
 					exit
 				elsif msg =~ /^help$/i
 					help
-				else
-					if msg.size > 160
-						puts "message too long"
-						send = false
-					elsif not @info and not msg =~ /^</
-						puts "message: #{msg}"
-						send = true
-					end
-					send_msg(msg) if send
+				elsif msg.size > 160
+					puts "message too long"
+					send = false
+				elsif not @info and not msg =~ /^</
+					puts "message: #{msg}"
+					send = true
 				end
+					send_msg(msg) if send
 			}
 		end
 	end
@@ -76,7 +74,7 @@ class Client
 						when "405"
 							puts "Error invalid chat room name."
 						when "500"
-							puts "Server error or is off"
+							puts "Server is was shutdown"
 							exit
 					end
 				else
